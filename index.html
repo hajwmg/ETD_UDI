@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>ENT 시장 B안(최근 5년 심층 + 장기 프레임) 리포트</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color:#f8fafc; }
+    .gradient-header { background: linear-gradient(135deg, #0f172a 0%, #1f2937 60%, #0b1220 100%); }
+    .card { background:white; border-radius:16px; box-shadow: 0 6px 16px -10px rgba(0,0,0,.35); }
+    .stat-value { font-size: 2.1rem; line-height: 2.4rem; font-weight: 800; }
+    .muted { color:#64748b; }
+    .safe-pad { padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+    * { -webkit-tap-highlight-color: transparent; }
+    .pill { font-size: 11px; padding: 6px 10px; border-radius: 9999px; }
+  </style>
+</head>
+
+<body class="safe-pad p-4 md:p-8">
+  <div class="max-w-6xl mx-auto">
+
+    <!-- Header -->
+    <header class="gradient-header text-white p-7 md:p-9 rounded-3xl mb-8">
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight">ETD(이관기능장애) 시장 + 수술성 지표(포괄수가) 리포트</h1>
+      <p class="text-sm md:text-base opacity-80 mt-2">B안: 장기 프레임 + 최근 5년 심층(2020–2024) · 모바일(Android/iOS) 최적화</p>
+      <div class="flex flex-wrap gap-2 mt-4 opacity-95">
+        <span class="pill bg-blue-500/25">팩트 기반(제공 CSV)</span>
+        <span class="pill bg-emerald-500/25">ETD(H69) 2020–2024</span>
+        <span class="pill bg-indigo-500/25">포괄수가(편도수술) 2020–2024</span>
+        <span class="pill bg-slate-500/25">생성일: 2026-02-20</span>
+      </div>
+    </header>
+
+    <!-- KPI cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8 text-center">
+      <div class="card p-6">
+        <p class="muted text-sm">ETD 환자수 (H69, 2024)</p>
+        <p class="stat-value text-indigo-600 mt-2" id="kpiPatients">-</p>
+        <p class="text-xs mt-2 text-green-600 font-semibold" id="kpiPatientsChange">-</p>
+      </div>
+
+      <div class="card p-6 border-t-4 border-indigo-500">
+        <p class="muted text-sm">ETD 진료비(급여비용) (2024)</p>
+        <p class="stat-value text-indigo-600 mt-2" id="kpiCost">-</p>
+        <p class="text-xs mt-2 text-green-600 font-semibold" id="kpiCostChange">-</p>
+      </div>
+
+      <div class="card p-6 border-t-4 border-orange-500">
+        <p class="muted text-sm">ETD 환자수 CAGR (2020→2024)</p>
+        <p class="stat-value text-orange-500 mt-2" id="kpiCagr">-</p>
+        <p class="text-xs mt-2 text-slate-500">연평균 성장률</p>
+      </div>
+    </div>
+
+    <!-- ETD charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div class="card p-6">
+        <h2 class="text-xl font-bold mb-4 flex items-center">
+          <span class="w-1 h-6 bg-indigo-600 mr-2 rounded"></span>
+          1. ETD(H69) 환자수 추이 (2020–2024)
+        </h2>
+        <canvas id="etdPatientsChart" height="210"></canvas>
+        <div class="mt-4 text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl">
+          <p>• 환자수 기준으로 ETD 내원 규모의 “시장 크기”를 확인합니다.</p>
+          <p>• 급증 구간(특정 연도 YoY)과 함께 보면 영업 타이밍을 잡기 쉽습니다.</p>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h2 class="text-xl font-bold mb-4 flex items-center">
+          <span class="w-1 h-6 bg-blue-600 mr-2 rounded"></span>
+          2. ETD(H69) 급여비용(원) 추이 (2020–2024)
+        </h2>
+        <canvas id="etdCostChart" height="210"></canvas>
+        <div class="mt-4 text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl">
+          <p>• 비용은 “시장 가치(금액)” 관점의 지표입니다.</p>
+          <p>• 환자수보다 비용이 더 빨리 늘면, 고부가 처치/검사 비중 증가 가능성이 있습니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ETD YoY table + per patient -->
+    <div class="card p-7 mb-8">
+      <h2 class="text-2xl font-bold mb-4">3. ETD 핵심 지표: YoY(전년대비) + 1인당 평균 급여비</h2>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 overflow-x-auto">
+          <table class="w-full text-left text-sm border-collapse">
+            <thead class="bg-slate-50 text-slate-700 font-bold">
+              <tr>
+                <th class="p-3 border-b">연도</th>
+                <th class="p-3 border-b">환자수</th>
+                <th class="p-3 border-b">환자수 YoY</th>
+                <th class="p-3 border-b">급여비용(원)</th>
+                <th class="p-3 border-b">비용 YoY</th>
+              </tr>
+            </thead>
+            <tbody id="yoyTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
+          <p class="font-bold text-slate-900">1인당 평균 급여비(원)</p>
+          <p class="text-xs text-slate-500 mt-1">= 급여비용 ÷ 환자수</p>
+          <p class="stat-value text-slate-900 mt-3" id="perPatient2024">-</p>
+          <p class="text-xs text-green-700 font-semibold mt-2" id="perPatientChange">-</p>
+          <div class="mt-4">
+            <canvas id="perPatientChart" height="160"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gender donut -->
+    <div class="card p-7 mb-8 border-l-8 border-indigo-600">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        <div class="lg:col-span-1 text-center">
+          <h2 class="text-xl font-bold mb-3">4. ETD 성별 분포 (2024)</h2>
+          <canvas id="genderChart" height="200"></canvas>
+          <p class="text-sm text-slate-600 mt-3">여성 비중이 높으면, 소아/가족동반·성인 여성 타겟 메시지 설계에 참고 가능합니다.</p>
+        </div>
+
+        <div class="lg:col-span-2">
+          <h3 class="text-xl font-bold mb-3">영업 메시지로 바꾸기(현장용)</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
+              <p class="font-bold text-indigo-800">핵심 문장(짧게)</p>
+              <ul class="list-disc pl-5 mt-2 text-sm text-slate-700 space-y-1">
+                <li>ETD(H69) 환자수는 2020→2024 <b id="msgPatientsUp">-</b> 증가(CAGR <b id="msgCagr">-</b>).</li>
+                <li>비용 증가 속도(CAGR)가 더 빠르면 “고부가 처치/검사” 포인트를 강조.</li>
+              </ul>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
+              <p class="font-bold text-emerald-800">다음 액션(체크리스트)</p>
+              <ul class="list-disc pl-5 mt-2 text-sm text-slate-700 space-y-1">
+                <li>ETD 환자 수요 높은 병원: 이관 관련 검사/치료 라인업 제안</li>
+                <li>Upgrade 타겟: “진료→처치/시술” 전환을 위한 패키지</li>
+                <li>소모품(치료재료) TOP은 기관 단위 청구/내부 판매데이터로 확정</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRG proxy -->
+    <div class="card p-7 mb-8">
+      <h2 class="text-2xl font-bold mb-3">5. 수술성 수요(Proxy): 포괄수가 ‘편도수술’ 주요지표 (2020–2024)</h2>
+      <p class="text-sm text-slate-600 mb-6">
+        “기관 단위 수술 시행 비율”은 공개 집계 CSV만으로 직접 산출이 어렵습니다.
+        대신 대표 수술군의 비용/입원일수 변화는 수술 시장 구조 변화를 보여주는 보조 지표로 활용 가능합니다.
+      </p>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+          <h3 class="font-bold text-slate-900 mb-3">편도수술 건당 진료비(원)</h3>
+          <canvas id="tonsilCostChart" height="190"></canvas>
+          <p class="text-xs text-slate-600 mt-3">2020→2024 변화율: <strong class="text-green-700" id="tonsilCostChange">-</strong></p>
+        </div>
+
+        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+          <h3 class="font-bold text-slate-900 mb-3">편도수술 건당 입원일수(일)</h3>
+          <canvas id="tonsilLosChart" height="190"></canvas>
+          <p class="text-xs text-slate-600 mt-3" id="tonsilLosChange">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Method note -->
+    <div class="card p-7 mb-10">
+      <h2 class="text-2xl font-bold mb-3">6. 수술 중심형 vs 진료 중심형 분류(보고서용 안전 버전)</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-indigo-700">수술 중심형(Surgical ENT)</span>
+            <span class="text-[11px] bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full">권장 정의</span>
+          </div>
+          <p class="text-sm text-slate-700 mt-2">
+            최근 1~3년 내 ENT 대표 수술/처치(부비동/비중격/편도 등) <strong>청구가 1건 이상</strong>인 기관
+          </p>
+          <p class="text-xs text-slate-500 mt-2">
+            ※ 기관별 분류를 숫자로 만들려면 HIRA 원격분석/빅데이터센터(기관단위 청구) 또는 내부 영업DB가 필요합니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-200">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-emerald-700">진료 중심형(Clinical ENT)</span>
+            <span class="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">Upgrade 타겟</span>
+          </div>
+          <p class="text-sm text-slate-700 mt-2">
+            수술/처치 청구가 없고 외래 중심. ENT 유닛·내시경·감염관리·소모품 반복 구매가 중요한 시장.
+          </p>
+          <p class="text-xs text-slate-500 mt-2">
+            ※ ETD/수술성 질환 수요가 증가하면 “진료→처치”로 넘어갈 가능성이 높아집니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <footer class="text-center text-slate-500 text-xs pb-10">
+      <p class="mb-1">데이터 출처(제공 파일 기준):</p>
+      <p>① HIRA: 질병소분류(3단상병) 입원/외래별 현황 (H69, 2020–2024) · ② HIRA: 포괄수가제 주요지표(편도수술, 2020–2024)</p>
+      <p class="mt-2">※ 본 리포트는 제공 CSV 범위 내에서 산출되며, “기관 단위 수술 시행 비율” 및 “소모품 TOP 사용량”은 기관단위 청구/내부 매출데이터 확보 시 팩트로 확정 가능합니다.</p>
+    </footer>
+  </div>
+
+<script>
+  // ✅ 제공 CSV에서 산출된 팩트 값
+  const DATA = {
+    years: [2020, 2021, 2022, 2023, 2024],
+    etdPatients: [47572, 51076, 53742, 78259, 85382],
+    etdCost_thousandwon: [3212304, 3917831, 4017906, 5704611, 6127009], // 천원
+    gender2024: { "남": 33089, "여": 52293 },
+
+    drgYears: [2020, 2021, 2022, 2023, 2024],
+    tonsilCost: [1473097, 1500608, 1575625, 1727602, 1786194],
+    tonsilLOS: [2.87, 2.82, 2.73, 2.78, 2.82]
+  };
+
+  // helpers
+  const fmtInt = (n) => n.toLocaleString("ko-KR");
+  const fmtPct = (x, d=1) => (x*100).toFixed(d) + "%";
+  const toWon = (thousandWon) => thousandWon * 1000;
+
+  const etdCostWon = DATA.etdCost_thousandwon.map(toWon);
+
+  // KPI
+  const p0 = DATA.etdPatients[0], pN = DATA.etdPatients[DATA.etdPatients.length-1];
+  const c0 = etdCostWon[0], cN = etdCostWon[etdCostWon.length-1];
+  const patientsChange = (pN/p0 - 1);
+  const costChange = (cN/c0 - 1);
+
+  const yearsCount = DATA.years.length - 1;
+  const cagrPatients = Math.pow(pN/p0, 1/yearsCount) - 1;
+  const cagrCost = Math.pow(cN/c0, 1/yearsCount) - 1;
+
+  document.getElementById("kpiPatients").textContent = fmtInt(pN) + "명";
+  document.getElementById("kpiPatientsChange").textContent = "▲ 2020 대비 " + fmtPct(patientsChange, 1) + " 증가";
+  document.getElementById("kpiCost").textContent = fmtInt(cN) + "원";
+  document.getElementById("kpiCostChange").textContent = "▲ 2020 대비 " + fmtPct(costChange, 1) + " 증가";
+  document.getElementById("kpiCagr").textContent = fmtPct(cagrPatients, 1);
+
+  document.getElementById("msgPatientsUp").textContent = fmtPct(patientsChange, 1);
+  document.getElementById("msgCagr").textContent = fmtPct(cagrPatients, 1);
+
+  // YoY table
+  const tbody = document.getElementById("yoyTableBody");
+  const perPatient = DATA.etdPatients.map((p, i) => Math.round(etdCostWon[i] / p));
+
+  for (let i=0; i<DATA.years.length; i++){
+    const y = DATA.years[i];
+    const p = DATA.etdPatients[i];
+    const c = etdCostWon[i];
+
+    const yoyP = (i===0) ? null : (p / DATA.etdPatients[i-1] - 1);
+    const yoyC = (i===0) ? null : (c / etdCostWon[i-1] - 1);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="p-3 border-b font-semibold text-slate-800">${y}</td>
+      <td class="p-3 border-b text-slate-700">${fmtInt(p)}</td>
+      <td class="p-3 border-b ${yoyP===null ? 'text-slate-400' : (yoyP>=0 ? 'text-green-700 font-semibold' : 'text-rose-700 font-semibold')}">
+        ${yoyP===null ? '-' : ('▲ ' + fmtPct(yoyP, 1))}
+      </td>
+      <td class="p-3 border-b text-slate-700">${fmtInt(c)}</td>
+      <td class="p-3 border-b ${yoyC===null ? 'text-slate-400' : (yoyC>=0 ? 'text-green-700 font-semibold' : 'text-rose-700 font-semibold')}">
+        ${yoyC===null ? '-' : ('▲ ' + fmtPct(yoyC, 1))}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Per patient KPI
+  const per0 = perPatient[0], perN = perPatient[perPatient.length-1];
+  const perChange = (perN/per0 - 1);
+  document.getElementById("perPatient2024").textContent = fmtInt(perN) + "원";
+  document.getElementById("perPatientChange").textContent = "▲ 2020 대비 " + fmtPct(perChange, 1) + " 변화";
+
+  // Chart helper
+  function makeLine(ctx, labels, data, title) {
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: title,
+          data,
+          borderWidth: 3,
+          fill: true,
+          tension: 0.35
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display:false } },
+        scales: { y: { beginAtZero: false } }
+      }
+    });
+  }
+
+  // ETD patients chart
+  makeLine(document.getElementById('etdPatientsChart').getContext('2d'),
+    DATA.years, DATA.etdPatients, 'ETD(H69) 환자수');
+
+  // ETD cost chart
+  makeLine(document.getElementById('etdCostChart').getContext('2d'),
+    DATA.years, etdCostWon, 'ETD(H69) 급여비용(원)');
+
+  // per patient chart
+  makeLine(document.getElementById('perPatientChart').getContext('2d'),
+    DATA.years, perPatient, '환자 1인당 평균 급여비(원)');
+
+  // gender donut
+  new Chart(document.getElementById('genderChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['남', '여'],
+      datasets: [{
+        data: [DATA.gender2024["남"], DATA.gender2024["여"]],
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      cutout: '70%',
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } } }
+    }
+  });
+
+  // DRG charts + deltas
+  makeLine(document.getElementById('tonsilCostChart').getContext('2d'),
+    DATA.drgYears, DATA.tonsilCost, '편도수술 건당 진료비(원)');
+  makeLine(document.getElementById('tonsilLosChart').getContext('2d'),
+    DATA.drgYears, DATA.tonsilLOS, '편도수술 건당 입원일수(일)');
+
+  const tc0 = DATA.tonsilCost[0], tcN = DATA.tonsilCost[DATA.tonsilCost.length-1];
+  const tcChange = (tcN/tc0 - 1);
+  document.getElementById("tonsilCostChange").textContent = "▲ " + fmtPct(tcChange, 1);
+
+  const tl0 = DATA.tonsilLOS[0], tlN = DATA.tonsilLOS[DATA.tonsilLOS.length-1];
+  document.getElementById("tonsilLosChange").textContent = `2020→2024: ${tl0.toFixed(2)} → ${tlN.toFixed(2)} (Δ ${(tlN-tl0).toFixed(2)}일)`;
+</script>
+</body>
+</html>
